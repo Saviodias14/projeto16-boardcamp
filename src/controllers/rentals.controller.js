@@ -7,7 +7,7 @@ export function getRent(req, res) {
     JOIN customers ON rentals."customerId" = customers.id`)
         .then((result) => {
             result.rows.map((e) => {
-                e.custumer = { id: e.customerId, name: e.customerName }
+                e.customer = { id: e.customerId, name: e.customerName }
                 e.game = { id: e.gameId, name: e.gameName }
                 delete e.gameName
                 delete e.customerName
@@ -35,6 +35,40 @@ export async function postRent(req, res) {
         ("customerId", "gameId", "rentDate", "daysRented", "returnDate", "originalPrice", "delayFee")
         VALUES ($1, $2, $3, $4, $5, $6, $7)`, [customerId, gameId, today, daysRented, null, originalPrice, null])
         res.sendStatus(201)
+    } catch (err) {
+        res.status(500).send(err.message)
+    }
+}
+
+export async function finalizeRent(req, res) {
+    const { id } = req.params
+    const today = new Date(dayjs().format("YYYY-MM-DD"))
+    try {
+        const existId = await db.query(`SELECT * FROM rentals WHERE id=$1`, [id])
+        if (existId.rows.length === 0) return res.sendStatus(404)
+        if (existId.rows[0].returnDate !== null) return res.sendStatus(400)
+        const diffTime = Math.abs(today - existId.rows[0].rentDate);
+        let delay =  Math.ceil(diffTime / (1000 * 60 * 60 * 24))-existId.rows[0].daysRented;
+        console.log(delay)
+        if(delay<0){
+            delay = 0
+        }
+        const delayFee = Number(delay)*existId.rows[0].originalPrice
+        await db.query(`UPDATE rentals SET "returnDate"=$1, "delayFee"=$2 WHERE id=$3`, [today, delayFee, id])
+        res.sendStatus(200)
+    } catch (err) {
+        res.status(500).send(err.message)
+    }
+}
+
+export async function deleteRent(req, res) {
+    const { id } = req.params
+    try {
+        const existId = await db.query(`SELECT * FROM rentals WHERE id = $1`, [id])
+        if (existId.rows.length === 0) return res.sendStatus(404)
+        if (existId.rows[0].returnDate === null) return res.sendStatus(400)
+        await db.query(`DELETE FROM rentals WHERE id=$1`, [id])
+        res.sendStatus(200)
     } catch (err) {
         res.status(500).send(err.message)
     }

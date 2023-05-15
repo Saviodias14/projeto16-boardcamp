@@ -23,7 +23,7 @@ export function getRent(req, res) {
 
 export async function postRent(req, res) {
     const { customerId, gameId, daysRented } = req.body
-    const today = dayjs().format('YYYY-MM-DD')
+    const today = dayjs("2023-05-02").format('YYYY-MM-DD')
     try {
         const existCustomer = await db.query(`SELECT * FROM customers WHERE id = $1`, [customerId])
         const existGame = await db.query(`SELECT * FROM games WHERE id = $1`, [gameId])
@@ -50,7 +50,7 @@ export async function finalizeRent(req, res) {
         const rentDate = dayjs(existId.rows[0].rentDate).format('YYYY-MM-DD');
         const diffTime = dayjs(today).diff(rentDate, 'days');
         let delay = Math.max(0, diffTime - existId.rows[0].daysRented+1);
-        const delayFee = delay * existId.rows[0].originalPrice;
+        const delayFee = delay * (existId.rows[0].originalPrice/existId.rows[0].daysRented);
         await db.query(`UPDATE rentals SET "returnDate"=$1, "delayFee"=$2 WHERE id=$3`, [today, delayFee, id])
         res.sendStatus(200)
     } catch (err) {
